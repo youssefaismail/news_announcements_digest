@@ -85,3 +85,8 @@ class ItemBatch(BaseModel):
     items: list[Item] = Field(
         ..., description="Batch of structured announcement items."
     )
+
+class CriticFeedback(BaseModel):
+    passed: bool
+    issues: list[str] = Field(default_factory=list)
+    revision_notes: str = ""
