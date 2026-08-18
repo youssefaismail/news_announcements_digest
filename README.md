@@ -1,3 +1,4 @@
+```folder structure
 project20/
 ├── data/
 │   ├── knowledge_base/        # inbox items (some poisoned) — TXT/MD
@@ -8,9 +9,12 @@ project20/
 │   │   ├── __init__.py
 │   │   ├── schemas.py         # Pydantic Item / ItemBatch
 │   │   ├── repair.py          # structured-output repair loop
-│   │   ├── ingestor.py        # reads inbox → raw items
-│   │   ├── structurer.py      # raw → Item (calls repair loop)
-│   │   ├── dedup_ranker.py    # LlamaIndex retrieval → dedup + urgency/relevance rank
+│   │   ├── rag/
+│   │   │   ├── chunking.py
+│   │   │   ├── indexing.py
+│   │   │   ├── loader.py
+│   │   │   ├── retriever.py
+│   │   │   └── vector_store.py      
 │   │   ├── summarizer.py      # per-item / digest summarization (treats content as data)
 │   │   ├── critic.py          # LangGraph critic node — checks digest before HITL
 │   │   ├── decision.py        # HITL approval node (interrupt/resume)
@@ -39,3 +43,5 @@ project20/
 ├── requirements.txt
 ├── .env.example
 └── .gitignore
+
+```
