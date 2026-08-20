@@ -1,3 +1,78 @@
+# Project 20 — News & Announcements Digest — Checklist
+
+## Data (setup)
+- [x] Inbox items with poisoned samples (`data.zip`)
+- [x] Relevance/urgency config
+- [x] Labeled eval subset
+
+## S1 — Pydantic (8 pts)
+- [x] `Item` schema with field descriptions
+- [x] Repair loop (`structure_with_repair`)
+- [ ] Wire repair loop to real LLM call (currently a stub `llm_call` arg)
+- [ ] Strengthen injection check — current one only catches a few hardcoded phrases
+
+## S2 — LlamaIndex retrieval (10 pts)
+- [x] Item-level loader, chunking, embeddings, vector store
+- [x] `check_duplicate()` for dedup
+- [ ] Bulk-index the actual `knowledge_base/` folder and sanity-check results
+- [ ] Measure retrieval (precision/recall or similarity distribution on known dupes)
+
+## S3 — LangGraph (12 pts)
+- [ ] Ingestor node
+- [ ] Structurer node (calls S1)
+- [ ] Dedup/Ranker node (calls S2)
+- [ ] Summarizer node
+- [ ] Digest Critic node
+- [ ] Decision (HITL approval) node
+- [ ] Digest export node
+- [ ] Persistent state across the graph
+
+## S4 — Streamlit (10 pts)
+- [ ] Run pipeline
+- [ ] Digest preview/export
+- [ ] Security panel
+- [ ] Eval page
+- [ ] Cost page
+
+## S5 — FastAPI (8 pts)
+- [ ] `/ingest` (async)
+- [ ] `/digest` (async)
+- [ ] Output validation on both
+
+## S6 — n8n (4 pts)
+- [ ] Scheduled trigger workflow (`automation/workflow.json`)
+- [ ] "Run now" fallback button
+
+## Evaluation (8 pts)
+- [ ] Category/urgency accuracy script against `data/eval/labeled_subset.json`
+
+## Security (8 pts)
+- [ ] Identify/confirm poisoned items in KB
+- [ ] Injection-resistance rate **before** hardening
+- [ ] Harden Summarizer/Critic against embedded instructions
+- [ ] Injection-resistance rate **after** hardening
+
+## Cost & Observability (6 pts)
+- [ ] Token/latency logging per pipeline run
+- [ ] TOON vs JSON comparison on item records
+
+## Docs & Deliverables
+- [ ] README with Mermaid diagram (all layers + security checkpoint marked)
+- [ ] KB inventory marking poisoned items
+- [ ] Framework-justification write-up (4 pts)
+- [ ] Failure-mode analysis (2 pts)
+- [ ] `reports/` folder with all five deliverables
+- [ ] Code quality / recommended structure pass (6 pts)
+
+## Constraints to keep checking
+- [ ] Total repo ≤ 50 MB
+- [ ] No secrets committed
+- [ ] Only synthetic data, no real external feeds/email
+
+
+
+
+
 ```folder structure
 project20/
 ├── data/
