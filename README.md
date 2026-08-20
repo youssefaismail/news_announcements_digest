@@ -1,33 +1,40 @@
 # Project 20 — News & Announcements Digest — Checklist
 
 ## Data (setup)
-- [x] Inbox items with poisoned samples (`data.zip`)
+
+- [x] Inbox items with poisoned samples (59 items, 8 poisoned)
 - [x] Relevance/urgency config
 - [x] Labeled eval subset
 
 ## S1 — Pydantic (8 pts)
+
 - [x] `Item` schema with field descriptions
-- [x] Repair loop (`structure_with_repair`)
-- [ ] Wire repair loop to real LLM call (currently a stub `llm_call` arg)
-- [ ] Strengthen injection check — current one only catches a few hardcoded phrases
+- [x] `CriticFeedback` schema
+- [x] Repair loop (`structure_with_repair` + wired version in `structurer` node)
+- [ ] Fix bug: `Item.model_dump_json()` called on class instead of `Item.model_json_schema()`
+- [ ] Strengthen injection check — only catches a few hardcoded phrases
 
 ## S2 — LlamaIndex retrieval (10 pts)
+
 - [x] Item-level loader, chunking, embeddings, vector store
 - [x] `check_duplicate()` for dedup
 - [ ] Bulk-index the actual `knowledge_base/` folder and sanity-check results
 - [ ] Measure retrieval (precision/recall or similarity distribution on known dupes)
 
 ## S3 — LangGraph (12 pts)
-- [ ] Ingestor node
-- [ ] Structurer node (calls S1)
-- [ ] Dedup/Ranker node (calls S2)
-- [ ] Summarizer node
-- [ ] Digest Critic node
-- [ ] Decision (HITL approval) node
-- [ ] Digest export node
-- [ ] Persistent state across the graph
+
+- [ ] Ingestor node (nothing reads `data/knowledge_base/` into `raw_items`)
+- [x] Structurer node
+- [ ] Dedup/Ranker node — currently `pass`, doesn't call S2 retriever
+- [x] Summarizer node — [ ] fix bug: `response.contentz` → `.content`
+- [x] Digest Critic node
+- [x] Decision (HITL) node — stub, needs real interrupt/resume
+- [x] Digest export node
+- [ ] `graph.py` — nodes exist but nothing wires them into a `StateGraph`
+- [ ] Persistent state / checkpointer
 
 ## S4 — Streamlit (10 pts)
+
 - [ ] Run pipeline
 - [ ] Digest preview/export
 - [ ] Security panel
@@ -35,42 +42,47 @@
 - [ ] Cost page
 
 ## S5 — FastAPI (8 pts)
+
 - [ ] `/ingest` (async)
 - [ ] `/digest` (async)
 - [ ] Output validation on both
 
 ## S6 — n8n (4 pts)
+
 - [ ] Scheduled trigger workflow (`automation/workflow.json`)
 - [ ] "Run now" fallback button
 
 ## Evaluation (8 pts)
+
 - [ ] Category/urgency accuracy script against `data/eval/labeled_subset.json`
 
 ## Security (8 pts)
-- [ ] Identify/confirm poisoned items in KB
-- [ ] Injection-resistance rate **before** hardening
-- [ ] Harden Summarizer/Critic against embedded instructions
-- [ ] Injection-resistance rate **after** hardening
+
+- [x] Poisoned items identified/marked in inventory
+- [x] Injection-resistant prompting in `structurer`/`critic`
+- [ ] Injection-resistance rate **before** hardening (measured)
+- [ ] Injection-resistance rate **after** hardening (measured)
 
 ## Cost & Observability (6 pts)
-- [ ] Token/latency logging per pipeline run
-- [ ] TOON vs JSON comparison on item records
+
+- [x] Token counter (`add_tokens`/`get_tokens`)
+- [ ] Logging/report of token+latency per run
+- [ ] TOON vs JSON comparison
 
 ## Docs & Deliverables
-- [ ] README with Mermaid diagram (all layers + security checkpoint marked)
-- [ ] KB inventory marking poisoned items
-- [ ] Framework-justification write-up (4 pts)
-- [ ] Failure-mode analysis (2 pts)
-- [ ] `reports/` folder with all five deliverables
-- [ ] Code quality / recommended structure pass (6 pts)
 
-## Constraints to keep checking
-- [ ] Total repo ≤ 50 MB
-- [ ] No secrets committed
-- [ ] Only synthetic data, no real external feeds/email
+- [ ] README with Mermaid diagram — currently just the checklist, needs replacing
+- [x] KB inventory marking poisoned items
+- [ ] Framework-justification write-up
+- [ ] Failure-mode analysis
+- [ ] `reports/` folder
+- [ ] Code quality pass (fix the 3 known bugs first)
 
+## Constraints
 
-
+- [ ] Repo ≤ 50 MB (not yet checked)
+- [x] No secrets committed (config uses env-style Groq key param, not hardcoded)
+- [x] Only synthetic data
 
 
 ```folder structure
@@ -89,7 +101,7 @@ project20/
 │   │   │   ├── indexing.py
 │   │   │   ├── loader.py
 │   │   │   ├── retriever.py
-│   │   │   └── vector_store.py      
+│   │   │   └── vector_store.py
 │   │   ├── summarizer.py      # per-item / digest summarization (treats content as data)
 │   │   ├── critic.py          # LangGraph critic node — checks digest before HITL
 │   │   ├── decision.py        # HITL approval node (interrupt/resume)
