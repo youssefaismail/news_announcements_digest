@@ -26,6 +26,10 @@ class Urgency(str, Enum):
 
 
 class Item(BaseModel):
+    item_id: str | None = Field(
+        default=None,
+        description="Internal only — not filled in by the LLM. The structurer sets this from the raw item's frontmatter after parsing, so downstream dedup/eval/security steps can trace a structured item back to its source file.",
+    )
     title: str = Field(
         ...,
         min_length=3,
@@ -85,6 +89,7 @@ class ItemBatch(BaseModel):
     items: list[Item] = Field(
         ..., description="Batch of structured announcement items."
     )
+
 
 class CriticFeedback(BaseModel):
     passed: bool
