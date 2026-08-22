@@ -201,15 +201,6 @@ elif page == "Evaluation":
             "Urgency accuracy", f"{urg_correct}/{len(matched)}" if matched else "n/a"
         )
 
-        st.warning(
-            "Vocabulary mismatch: the `Item.category` enum (academic/event/admin/"
-            "security/other) doesn't match the eval set's categories (Academic/"
-            "Administrative/Event/Facilities/Career/Emergency/ClubSocial/ITSecurity/"
-            "FinancialAid/Health) from `data/config/relevance_urgency_config.json`. "
-            "These numbers will look worse than the model actually performs until "
-            "the enum is aligned with the config."
-        )
-
         rows = [
             {
                 "item_id": iid,

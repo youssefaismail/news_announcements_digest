@@ -52,6 +52,7 @@ def run_summarize_and_critique(
     model: str | None = None,
     temperature: float | None = None,
 ) -> DigestState:
+
     """Summarizer <-> Critic loop, up to MAX_CRITIC_ATTEMPTS."""
     cfg = _cfg(groq_api_key, model, temperature)
 

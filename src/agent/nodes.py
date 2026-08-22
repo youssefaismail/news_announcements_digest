@@ -134,7 +134,7 @@ def dedup_ranker(state: DigestState, config: RunnableConfig = None):
             deduped.append(item)
             seen.append((item.item_id, item.title, emb))
 
-    deduped.sort(key=lambda i: urgency_rank.get(i.urgency.value, 4))
+    deduped.sort(key=lambda i: urgency_rank.get(i.urgency.value.lower(), 4))
     return {"deduped_items": deduped, "duplicate_ids": duplicate_ids, "flags": flags}
 
 

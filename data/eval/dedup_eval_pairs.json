@@ -1,0 +1,74 @@
+[
+  {
+    "case_id": "DUP-01",
+    "label": "duplicate",
+    "expected_item_id": "ITM-005",
+    "query_text": "Career Fair Sign-Ups Open for This Fall — More than 60 companies are confirmed for the September 10 career fair in the Student Union. Register ahead of time to get priority booking for interviews with employers on-site."
+  },
+  {
+    "case_id": "DUP-02",
+    "label": "duplicate",
+    "expected_item_id": "ITM-020",
+    "query_text": "Reminder: Fall tuition needs to be settled or a payment plan set up by August 22. Accounts still unpaid after that date will get a registration hold, blocking transcript requests and schedule changes."
+  },
+  {
+    "case_id": "DUP-03",
+    "label": "duplicate",
+    "expected_item_id": "ITM-027",
+    "query_text": "Fall 2026 class registration wraps up this Friday at midnight. Anyone who hasn't finalized their schedule by then faces a $75 late fee and could lose their spot in required classes. Advisors are open for drop-in visits at Student Services through Thursday."
+  },
+  {
+    "case_id": "DUP-04",
+    "label": "duplicate",
+    "expected_item_id": "ITM-032",
+    "query_text": "Students flagged for FAFSA verification need to turn in the requested paperwork by Friday, or their financial aid payout could be delayed. Upload everything through the aid portal."
+  },
+  {
+    "case_id": "DUP-05",
+    "label": "duplicate",
+    "expected_item_id": "ITM-047",
+    "query_text": "Heads up: the window to add or drop fall classes closes Friday at 5 PM. Dropping a course after that point will leave a 'W' on the transcript instead of removing it cleanly."
+  },
+  {
+    "case_id": "DUP-06",
+    "label": "duplicate",
+    "expected_item_id": "ITM-054",
+    "query_text": "A gas leak near the Engineering Annex has forced the building to close for now while crews look into it and make repairs. Classes that were in the Annex today have moved to Science Building room 110."
+  },
+  {
+    "case_id": "DUP-07",
+    "label": "duplicate",
+    "expected_item_id": "ITM-006",
+    "query_text": "Campus Police are looking into a suspicious package spotted near the Main Library entrance. That area is roped off for now as a precaution — stay away until it's cleared, more updates to come."
+  },
+  {
+    "case_id": "DUP-08",
+    "label": "duplicate",
+    "expected_item_id": "ITM-010",
+    "query_text": "A severe thunderstorm warning is in effect for campus from 2 to 6 PM today. All afternoon classes and any outdoor activities are called off — get inside the nearest building and avoid traveling unless necessary."
+  },
+  {
+    "case_id": "NEG-01",
+    "label": "non_duplicate",
+    "distractor_item_id": "ITM-047",
+    "query_text": "Registration for Fall 2026 courses closes this Friday at 11:59 PM. Students who have not registered or confirmed their schedule will be assessed a $75 late registration fee and may lose priority seating in required courses."
+  },
+  {
+    "case_id": "NEG-02",
+    "label": "non_duplicate",
+    "distractor_item_id": "ITM-021",
+    "query_text": "Students selected for FAFSA verification must submit all requested documents by Friday to avoid delays in financial aid disbursement. Documents can be uploaded through the financial aid portal."
+  },
+  {
+    "case_id": "NEG-03",
+    "label": "non_duplicate",
+    "distractor_item_id": "ITM-010",
+    "query_text": "A gas leak was detected near the Engineering Annex this morning. The building is closed until further notice while utility crews investigate and repair the issue."
+  },
+  {
+    "case_id": "NEG-04",
+    "label": "non_duplicate",
+    "distractor_item_id": "ITM-028",
+    "query_text": "Over 60 employers will attend this fall's career fair on September 10 in the Student Union. Students can register online to receive priority scheduling for on-site interviews with participating companies."
+  }
+]

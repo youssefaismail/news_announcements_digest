@@ -1,0 +1,350 @@
+{
+  "name": "News Announcements Digest - Scheduled Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "3a33a9f7-d128-4962-85a6-bcbd84b59fea",
+      "name": "Daily 7AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -64,
+        -48
+      ],
+      "notes": "Simulates the scheduled feed pull — no external feed, just kicks off the local-inbox pipeline daily."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "run-now",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "9b910d7a-2375-47b1-9a9f-3cb14b1c329a",
+      "name": "Run Now (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        448
+      ],
+      "webhookId": "490c5dc4-04f4-4940-84eb-c0220c26eab8",
+      "notes": "Fallback manual trigger. Streamlit's 'Run Now' button (or curl) POSTs here to run the pipeline on demand instead of waiting for the schedule."
+    },
+    {
+      "parameters": {},
+      "id": "87449964-a298-4274-a496-33ada2433958",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/ingest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"kb_dir\": \"data/knowledge_base\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "2c87e054-c49d-41e4-8577-e994403a5eef",
+      "name": "Call /ingest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        112
+      ],
+      "notes": "Reads the local inbox (data/knowledge_base) and runs Structurer + Dedup/Ranker via the FastAPI backend (S5)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/digest",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"run_id\": \"={{$json.run_id}}\",\n  \"auto_approve\": false\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "f0a89b09-4798-4164-ac36-ae7cb08b549e",
+      "name": "Call /digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        112
+      ],
+      "notes": "Runs Summarizer -> Critic -> HITL Decision -> Digest export. auto_approve=false means this returns a pending draft when HITL hasn't approved yet — see the IF branch below."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json.status}}",
+              "rightValue": "approved",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "id": "182d308e-bbed-4d88-acad-ea5b99c9b7ab"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "63e58b7e-8fa5-4b50-bb0e-65539ae97964",
+      "name": "Digest Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        112
+      ],
+      "notes": "HITL gate: only write/deliver a digest that a human already approved via the Streamlit decision step. A 'pending' status just ends this run."
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "digest_report",
+        "options": {
+          "fileName": "=digest_{{$now.format('yyyy-MM-dd')}}.md"
+        }
+      },
+      "id": "d60c6ef3-1ee8-4028-b946-28c0e74e4127",
+      "name": "Convert Digest to File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1136,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=data/output/digest_{{$now.format('yyyy-MM-dd')}}.md",
+        "options": {}
+      },
+      "id": "9969b1b4-cd97-42d0-ba3b-a3093494a019",
+      "name": "Write Digest to Disk",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        1376,
+        0
+      ],
+      "notes": "Simulated delivery. Constraints forbid real email sending, so 'sending' the digest means writing it to data/output/ instead of an SMTP call."
+    },
+    {
+      "parameters": {},
+      "id": "8c7e01b3-7fba-4000-b1aa-ceda42886433",
+      "name": "Pending Approval - No Delivery",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1168,
+        304
+      ],
+      "notes": "Digest was structured/summarized but not yet approved by a human. Nothing is written or delivered until approval happens (in Streamlit)."
+    },
+    {
+      "parameters": {
+        "sendTo": "ex@gmail.com",
+        "subject": "News & Announcement Digest",
+        "message": "Hello, World",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1376,
+        -208
+      ],
+      "id": "f40b43e1-3d50-45e3-981a-8c39853a8ddc",
+      "name": "Send a message",
+      "webhookId": "98cdbcca-9f0f-4ef7-8253-c6d3aefbbe9d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "lLurOQkFJqyxcdUP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nfor (const item of $input.all()) {\n  item.json.myNewField = 1;\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        -208
+      ],
+      "id": "fa6b483a-3aa9-4a0e-84f3-e3183b9629cd",
+      "name": "Digest Formatter"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        208
+      ],
+      "id": "5f1f30dd-180a-4fdb-b1ed-3ef49f28beac",
+      "name": "Run Now"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 7AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Call /ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call /ingest": {
+      "main": [
+        [
+          {
+            "node": "Call /digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call /digest": {
+      "main": [
+        [
+          {
+            "node": "Digest Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digest Approved?": {
+      "main": [
+        [
+          {
+            "node": "Convert Digest to File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Digest Formatter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pending Approval - No Delivery",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Digest to File": {
+      "main": [
+        [
+          {
+            "node": "Write Digest to Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Digest Formatter": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Now": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "12d3a04c-f751-4ca1-adcd-9d7e88ac578e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6c8c43afedd02367256834713fe0d3af799e3c1b3c846ef774faee539ad0d38a"
+  },
+  "nodeGroups": [],
+  "id": "luoQKmB7XKmvM5Dz",
+  "tags": []
+}
