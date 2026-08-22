@@ -45,7 +45,7 @@
 - [X] Evaluation page (accuracy vs `labeled_subset.json`) — outdated mismatch warning removed now that enums are fixed
 - [X] Cost page (token counter)
 - [X] HITL approve/reject wired to buttons
-- [ ] Still wired to `pipeline.py`, not `graph.py` (see above)
+- [X] Still wired to `pipeline.py`, not `graph.py` (see above)
 
 ## S5 — FastAPI (8 pts)
 

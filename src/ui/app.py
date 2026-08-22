@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -6,17 +7,17 @@ import streamlit as st
 
 from config import KB_DIR
 from src.agent.nodes import get_tokens, reset_tokens
-from src.agent.pipeline import (
-    run_structuring_and_dedup,
-    run_summarize_and_critique,
-    finalize_digest,
-)
+from src.agent.graph import run_pipeline, resume_pipeline
 from src.agent.rag.indexing import index_knowledge_base
 
 st.set_page_config(page_title="News & Announcements Digest", layout="wide")
 
+if "thread_id" not in st.session_state:
+    st.session_state.thread_id = None
 if "state" not in st.session_state:
     st.session_state.state = None
+if "interrupt_payload" not in st.session_state:
+    st.session_state.interrupt_payload = None
 
 st.sidebar.title("News & Announcements Digest")
 groq_api_key = st.sidebar.text_input("Groq API key", type="password")
@@ -42,6 +43,15 @@ def _dataframe_rows(items):
         if i is not None
     ]
 
+def _apply_result(result: dict):
+    """invoke()/Command(resume=...) return the state values plus a
+    "__interrupt__" key when the graph is paused. Split those apart so the
+    rest of the page can just read plain state."""
+    interrupt_info = result.get("__interrupt__")
+    st.session_state.interrupt_payload = (
+        interrupt_info[0].value if interrupt_info else None
+    )
+    st.session_state.state = {k: v for k, v in result.items() if k != "__interrupt__"}
 
 # ---------------------------------------------------------------- Pipeline
 if page == "Pipeline":
@@ -59,13 +69,19 @@ if page == "Pipeline":
 
     st.divider()
 
-    if st.button("1. Ingest, structure & dedup", disabled=not groq_api_key):
-        with st.spinner("Structuring items and checking for duplicates..."):
+    if st.button(
+        "Run pipeline (Ingest -> structure -> dedup -> summarize -> critic)",
+        disabled=not groq_api_key    
+    ):
+        with st.spinner("Running the agent graph..."):
             reset_tokens()
-            st.session_state.state = run_structuring_and_dedup(KB_DIR, groq_api_key)
+            thread_id = str(uuid.uuid4())
+            result, _ = run_pipeline(groq_api_key, thread_id=thread_id)
+            st.session_state.thread_id = thread_id
+            _apply_result(result)
 
     state = st.session_state.state
-    if state:
+    if state and state.get("structured_items"):
         st.subheader(
             f"Structured {len([i for i in state['structured_items'] if i])} / {len(state['raw_items'])} items"
         )
@@ -80,12 +96,6 @@ if page == "Pipeline":
             with st.expander(f"⚠️ {len(state['flags'])} flag(s) raised"):
                 st.json(state["flags"])
 
-        st.divider()
-        if st.button("2. Summarize + run critic", disabled=not state["deduped_items"]):
-            with st.spinner("Summarizing and running the critic..."):
-                st.session_state.state = run_summarize_and_critique(state, groq_api_key)
-
-    state = st.session_state.state
     if state and state.get("digest_draft"):
         st.divider()
         st.subheader("Digest draft")
@@ -98,20 +108,34 @@ if page == "Pipeline":
             else:
                 st.warning(f"Critic: issues found — {feedback.issues}")
 
-        st.subheader("Human approval (HITL)")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✅ Approve"):
-                state["approved"] = True
-                st.session_state.state = finalize_digest(state)
-                st.rerun()
-        with col2:
-            notes = st.text_input("Rejection notes", key="rejection_notes")
-            if st.button("❌ Reject and revise", disabled=not notes):
-                state["approved"] = False
-                state["approval_notes"] = notes
-                st.session_state.state = run_summarize_and_critique(state, groq_api_key)
-                st.rerun()
+        if st.session_state.interrupt_payload is not None:
+            st.subheader("Human approval (HITL)")
+            st.caption("The graph is paused at the `decision` node waiting for a verdict.")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Approve"):
+                    with st.spinner("Resuming graph..."):
+                        result, _ = resume_pipeline(
+                            approved=True,
+                            thread_id=st.session_state.thread_id,
+                            groq_api_key=groq_api_key,
+                        )
+                        _apply_result(result)
+                    st.rerun()
+            with col2:
+                notes = st.text_input("Rejection notes", key="rejection_notes")
+                if st.button("❌ Reject and revise", disabled=not notes):
+                    with st.spinner("Resuming graph with revision notes..."):
+                        result, _ = resume_pipeline(
+                            approved=False,
+                            approval_notes=notes,
+                            thread_id=st.session_state.thread_id,
+                            groq_api_key=groq_api_key,
+                        )
+                        _apply_result(result)
+                    st.rerun()
+        elif not state.get("digest_report"):
+            st.info("Waiting on the graph — click 'Run pipeline' if this doesn't advance.")
 
     state = st.session_state.state
     if state and state.get("digest_report"):
@@ -224,5 +248,7 @@ elif page == "Cost":
     st.metric("Total tokens this session", get_tokens())
     st.caption(
         "Accumulated across every structurer/summarizer/critic call via `_get_llm` "
-        "in `nodes.py`. Resets each time step 1 (Ingest/structure/dedup) runs."
+        "in `nodes.py`. Resets each time the pipeline is (re)run."
     )
+    if st.session_state.thread_id:
+        st.caption(f"LangGraph thread_id: `{st.session_state.thread_id}`")
