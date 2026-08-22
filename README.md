@@ -49,9 +49,9 @@
 
 ## S5 — FastAPI (8 pts)
 
-- [ ] `/ingest` (async) — **blocking dependency for n8n workflow**
-- [ ] `/digest` (async) — **blocking dependency for n8n workflow**
-- [ ] Output validation on both
+- [X] `/ingest` (async) — **blocking dependency for n8n workflow**
+- [X] `/digest` (async) — **blocking dependency for n8n workflow**
+- [X] Output validation on both
 
 ## S6 — n8n (4 pts)
 
