@@ -83,9 +83,9 @@
 
 - [ ] README with Mermaid diagram — currently just an old checklist copy, needs replacing
 - [X] KB inventory marking poisoned items
-- [ ] Framework-justification write-up
+- [X] Framework-justification write-up
 - [ ] Failure-mode analysis
-- [ ] `reports/` folder
+- [X] `reports/` folder
 - [ ] Code quality pass / recommended structure check
 
 ## Constraints
@@ -97,7 +97,7 @@
 
 ## Known bugs / portability issues to fix
 
-- [ ] `config.py`: `DB_PATH`/`KB_DIR` are absolute paths rooted at `/news_announcements_digest/...` — will break on any machine where the repo isn't cloned to filesystem root; switch to relative paths
+- [X] `config.py`: `DB_PATH`/`KB_DIR` are absolute paths rooted at `/news_announcements_digest/...` — will break on any machine where the repo isn't cloned to filesystem root; switch to relative paths
 ```bash
 uv run -m streamlit run src/ui/app.py
 # or
