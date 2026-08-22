@@ -4,12 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import Response, StreamingResponse
 
 from config import KB_DIR
-from src.agent.pipeline import (
-    build_initial_state,
-    finalize_digest,
-    run_structuring_and_dedup,
-    run_summarize_and_critique,
-)
+from src.agent.graph import run_pipeline, resume_pipeline
 
 from .deps import get_groq_api_key
 from .limits import GENERATE_LIMIT, INGEST_LIMIT, limiter
@@ -48,21 +43,20 @@ async def ingest_endpoint(
     groq_api_key: str = Depends(get_groq_api_key),
 ):
     #Validated request -> async pipeline run -> structured JSON response, Blocks until the whole batch is structured/deduped -> use /ingest/async
-    #Or /ingest/stream if the caller can't hold the connection open
-    kb_dir = payload.kb_dir or KB_DIR
-
-    state = await asyncio.to_thread(
-        run_structuring_and_dedup, kb_dir, groq_api_key, payload.model, payload.temperature
+    thread_id = await store.reserve(payload.run_label)
+    
+    state, _ = await asyncio.to_thread(
+        run_pipeline, groq_api_key, thread_id, payload.model, payload.temperature
     )
-    thread_id = await store.create(state, run_label=payload.run_label)
+    await store.fulfill(thread_id, state)
 
     return IngestResponse(
         thread_id=thread_id,
         run_label=payload.run_label,
-        structured_items=state["deduped_items"],
+        structured_items=state.get("deduped_items", []),
         flags=state.get("flags", []),
         duplicate_ids=state.get("duplicate_ids", []),
-        item_count=len(state["deduped_items"]),
+        item_count=len(state.get("deduped_items", [])),
         duplicate_count=len(state.get("duplicate_ids", [])),
     )
 
@@ -73,7 +67,6 @@ async def ingest_stream(
     payload: IngestRequest,
     groq_api_key: str = Depends(get_groq_api_key),
 ):
-    #Streams progress through Ingestor -> Structurer -> Dedup/Ranker
     from src.agent.ingestor import ingest as ingest_fn
     from src.agent.nodes import dedup_ranker, structurer
 
@@ -83,23 +76,23 @@ async def ingest_stream(
     async def gen():
         yield f"ingestor: reading inbox from {kb_dir}\n"
         raw_items = await asyncio.to_thread(ingest_fn, kb_dir)
-        state = build_initial_state(raw_items)
+        state = {"raw_items": raw_items}
         yield f"ingestor: loaded {len(raw_items)} raw items\n"
 
         yield "structurer: extracting structured items (repair loop active)...\n"
         state.update(await asyncio.to_thread(structurer, state, cfg))
-        ok = len([i for i in state["structured_items"] if i is not None])
+        ok = len([i for i in state.get("structured_items", []) if i is not None])
         yield f"structurer: structured {ok}/{len(raw_items)} items\n"
 
         yield "dedup_ranker: comparing embeddings, ranking by urgency...\n"
         state.update(await asyncio.to_thread(dedup_ranker, state, cfg))
         yield (
-            f"dedup_ranker: {len(state['duplicate_ids'])} duplicates flagged, "
-            f"{len(state['deduped_items'])} kept\n"
+            f"dedup_ranker: {len(state.get('duplicate_ids', []))} duplicates flagged, "
+            f"{len(state.get('deduped_items', []))} kept\n"
         )
 
         thread_id = await store.create(state, run_label=payload.run_label)
-        yield f"FINAL: thread_id={thread_id} item_count={len(state['deduped_items'])}\n"
+        yield f"FINAL: thread_id={thread_id} item_count={len(state.get('deduped_items', []))}\n"
 
     return StreamingResponse(gen(), media_type="text/plain") 
 
@@ -109,13 +102,12 @@ async def ingest_async(
     bg: BackgroundTasks,
     groq_api_key: str = Depends(get_groq_api_key),
 ):
-    kb_dir = payload.kb_dir or KB_DIR
     thread_id = await store.reserve(payload.run_label)
 
     async def _run():
         try:
-            state = await asyncio.to_thread(
-                run_structuring_and_dedup, kb_dir, groq_api_key, payload.model, payload.temperature
+            state, _ = await asyncio.to_thread(
+                run_pipeline, groq_api_key, thread_id, payload.model, payload.temperature
             )
             await store.fulfill(thread_id, state)
             log_event("background_ingest_finished", thread_id=thread_id, run_label=payload.run_label)
@@ -134,7 +126,8 @@ async def generate_digest(
     payload: GenerateDigestRequest,
     groq_api_key: str = Depends(get_groq_api_key),
 ):
-    #Summarizes and critiques the structured items for a given thread_id, returning a draft digest and any critic feedback
+    # Since run_pipeline processes the entire graph until the decision interrupt, 
+    # we simply fetch the existing state and return the draft/feedback.
     record = await store.get(thread_id)
     if record is None:
         raise HTTPException(status_code=404, detail="unknown thread_id — call /ingest first")
@@ -143,48 +136,50 @@ async def generate_digest(
     if record.background_status == "failed":
         raise HTTPException(status_code=409, detail=f"ingest failed: {record.error}")
 
-    state = await asyncio.to_thread(
-        run_summarize_and_critique, record.state, groq_api_key, payload.model, payload.temperature
-    )
-    await store.update(thread_id, state)
-
-    feedback = state["critic_feedback"]
+    state = record.state
+    feedback = state.get("critic_feedback")
+    
     return GenerateDigestResponse(
         thread_id=thread_id,
-        digest_draft=state["digest_draft"],
+        digest_draft=state.get("digest_draft"),
         critic_feedback=feedback,
         critic_attempts=state.get("critic_attempts", 0),
-        awaiting_approval=bool(feedback and feedback.passed),
+        awaiting_approval=bool(feedback and getattr(feedback, "passed", False)),
     )
 
 @router.post("/digest/{thread_id}/approve", response_model=ApprovalResponse)
-async def approve_digest(thread_id: str, payload: ApprovalRequest):
-    #Human-in-the-loop checkpoint for approving or rejecting the draft digest
+async def approve_digest(
+    thread_id: str, 
+    payload: ApprovalRequest,
+    groq_api_key: str = Depends(get_groq_api_key),
+):
+    # Human-in-the-loop checkpoint. We resume the pipeline state graph with the human verdict.
     record = await store.get(thread_id)
     if record is None:
         raise HTTPException(status_code=404, detail="unknown thread_id")
 
-    state = record.state
-    if not state.get("digest_draft"):
-        raise HTTPException(status_code=400, detail="no draft to approve yet — call /generate first")
+    if not record.state.get("digest_draft"):
+        raise HTTPException(status_code=400, detail="no draft to approve yet — pipeline may not have finished")
 
-    state["approved"] = payload.approved
-    state["approval_notes"] = payload.approval_notes
     hitl_rounds = await store.bump_hitl(thread_id)
 
-    if payload.approved:
-        state = await asyncio.to_thread(finalize_digest, state)
-        await store.update(thread_id, state)
-        return ApprovalResponse(
-            thread_id=thread_id, status="sent", digest_report=state["digest_report"], hitl_rounds=hitl_rounds
-        )
-
-    await store.update(thread_id, state)
-    if hitl_rounds >= record.max_hitl_rounds:
+    if not payload.approved and hitl_rounds > record.max_hitl_rounds:
         raise HTTPException(
             status_code=409,
             detail=f"rejected {hitl_rounds} times — max_hitl_rounds reached, needs manual escalation",
         )
+
+    # Resume the graph from the decision node interrupt
+    state, _ = await asyncio.to_thread(
+        resume_pipeline, payload.approved, payload.approval_notes, thread_id, groq_api_key
+    )
+    await store.update(thread_id, state)
+
+    if payload.approved:
+        return ApprovalResponse(
+            thread_id=thread_id, status="sent", digest_report=state.get("digest_report"), hitl_rounds=hitl_rounds
+        )
+
     return ApprovalResponse(
         thread_id=thread_id, status="revision_requested", digest_report=None, hitl_rounds=hitl_rounds
     )

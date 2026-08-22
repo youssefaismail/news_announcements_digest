@@ -37,12 +37,10 @@ class SessionStore:
 
     # Pre-creates a placeholder record so /ingest/async can return a thread_id immediately
     async def reserve(self, run_label: str) -> str:
-        from src.agent.pipeline import build_initial_state
-
         thread_id = str(uuid.uuid4())
         async with self._lock:
             self._sessions[thread_id] = SessionRecord(
-                state=build_initial_state([]),  
+                state={},
                 run_label=run_label,
                 background_status="pending",
             )

@@ -35,7 +35,7 @@
 - [X] Digest export node
 - [X] **`graph.py`** — real `StateGraph` with conditional routing (critic retry loop, HITL branch), `interrupt()`/`Command(resume=...)` for HITL, `MemorySaver` checkpointer for persistence
 - [ ] `MemorySaver` is in-process only — swap to `SqliteSaver` if persistence across restarts is needed
-- [ ] Streamlit still calls the old `pipeline.py` stopgap, not `graph.py` — needs rewiring so the graph is actually what runs, not just what exists
+- [X] Streamlit still calls the old `pipeline.py` stopgap, not `graph.py` — needs rewiring so the graph is actually what runs, not just what exists
 
 ## S4 — Streamlit (10 pts)
 

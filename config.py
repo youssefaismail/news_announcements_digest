@@ -1,6 +1,6 @@
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-DB_PATH = "/news_announcements_digest/data/chroma/vector_store.db"
-KB_DIR= '/news_announcements_digest/data/knowledge_base'
+DB_PATH = "data/chroma/vector_store.db"
+KB_DIR= 'data/knowledge_base'
 COLLECTION_NAME = "news_items"
 TOP_K = 5
 MAX_RETRIES = 3
