@@ -144,3 +144,21 @@ def resume_pipeline(
         config=config,
     )
     return result, config
+
+def stream_pipeline(
+    groq_api_key: str,
+    thread_id: str = "default",
+    model: str = None,
+    temperature: float = None,
+):
+    """Streams node-level updates from the LangGraph pipeline."""
+    app = build_graph()
+
+    config = _config(
+        thread_id,
+        groq_api_key,
+        model,
+        temperature,
+    )
+
+    return app.stream({}, config=config, stream_mode="updates"), config

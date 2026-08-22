@@ -8,7 +8,7 @@ from config import DB_PATH, COLLECTION_NAME, EMBED_MODEL
 
 def get_embed_model(model_name: str = EMBED_MODEL) -> HuggingFaceEmbedding:
     """Factory for the embedding model LlamaIndex will use for indexing/queries."""
-    return HuggingFaceEmbedding(model_name=model_name, normalize=True)
+    return HuggingFaceEmbedding(model_name=model_name, normalize=True, device="cpu")
 
 
 class VectorStore:
