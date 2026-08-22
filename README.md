@@ -98,8 +98,12 @@
 ## Known bugs / portability issues to fix
 
 - [ ] `config.py`: `DB_PATH`/`KB_DIR` are absolute paths rooted at `/news_announcements_digest/...` — will break on any machine where the repo isn't cloned to filesystem root; switch to relative paths
-- [ ] `main.py` is still the placeholder stub — real entrypoint is now `streamlit run streamlit_app.py`
+```bash
+uv run -m streamlit run src/ui/app.py
+# or
+streamlit run src/ui/app.py
 
+```
 ```folder
 project20/
 ├── data/
