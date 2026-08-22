@@ -10,17 +10,17 @@ DEFAULT_MAX_HITL_ROUNDS = 3
 class SessionRecord:
     state: DigestState
     run_label: str
+    background_status: str = "pending"
     hitl_rounds: int = 0
     max_hitl_rounds: int = DEFAULT_MAX_HITL_ROUNDS
-    background_status: str
     error: str | None = None
-    created_at: float = field(default_factory=time.time())
-    updated_at: float = field(default_factory=time.time())
+    created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
 
 class SessionStore:
     def __init__(self):
-        self.sessions: dict[str, SessionRecord] = {}
-        self.lock = asyncio.Lock()
+        self._sessions: dict[str, SessionRecord] = {}
+        self._lock = asyncio.Lock()
 
     async def create(
         self,
@@ -80,4 +80,4 @@ class SessionStore:
             record.hitl_rounds += 1
             return record.hitl_rounds
 
-store = SessionStore()        
+store = SessionStore()
